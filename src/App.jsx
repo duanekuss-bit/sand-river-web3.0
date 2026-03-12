@@ -10,8 +10,7 @@ import {
 
 // Firebase Imports
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, writeBatch, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
 
 // =========================================================================
 // --- FIREBASE & ROWY INITIALIZATION ---
@@ -30,10 +29,9 @@ const ROWY_TABLE_NAME = "testtable1";
 // =========================================================================
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Default Curated Highlights
+// Default Curated Highlights (Fallback data)
 const defaultStats = [
   { year: 1961, hunter: "John Godava", sex: "Buck", location: "Pollock's Lowland", time: "AM", party: 3, weather: "Clear/Cold", note: "The First One. Purchased South 40 for $40 + timber value.", story: "The foundation of Sand River was laid by a cast of characters as colorful as the Minnesota woods themselves. In the spring of 1961, they purchased the 'South 40 Acres' for $40 plus $175 for timber value.", partyPhoto: "https://images.unsplash.com/photo-1520699697851-3d29cb1f17bd?q=80&w=800&auto=format&fit=crop", harvestPhoto: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800&auto=format&fit=crop" },
   { year: 1964, hunter: "No Harvest", sex: "N/A", location: "N/A", time: "N/A", party: 4, weather: "Cold", note: "Skunked Year #1. The woods win for the first time." },
@@ -44,7 +42,6 @@ const defaultStats = [
 const COLORS = ['#047857', '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5'];
 
 const App = () => {
-  const [user, setUser] = useState(null);
   const [statsData, setStatsData] = useState(defaultStats);
   const [isDataImported, setIsDataImported] = useState(false);
   const [cloudStatus, setCloudStatus] = useState('connecting'); 
@@ -54,27 +51,11 @@ const App = () => {
   const [filterSex, setFilterSex] = useState('All');
   const [filterDecade, setFilterDecade] = useState('All');
   const [activeYearbookYear, setActiveYearbookYear] = useState(null);
-  const [expandedYears, setExpandedYears] = useState(new Set());
-
-  const toggleYear = (year) => {
-    setExpandedYears(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(year)) newSet.delete(year);
-      else newSet.add(year);
-      return newSet;
-    });
-  };
 
   useEffect(() => {
-    if (!auth) return;
-    signInAnonymously(auth).catch(e => console.error("Auth error", e));
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!db || !user) return;
+    if (!db) return;
     
+    // We removed the Auth block! It goes straight to your table now.
     const colRef = collection(db, ROWY_TABLE_NAME);
     
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
@@ -83,7 +64,6 @@ const App = () => {
         const raw = doc.data();
         
         // --- THE SANITIZER ---
-        // This forces every Rowy cell into the exact format the website needs so it never crashes.
         records.push({
           id: doc.id,
           year: Number(raw.year) || 0,
@@ -112,7 +92,7 @@ const App = () => {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, []); // <--- Removed the user dependency here!
 
   const decades = useMemo(() => {
     const decs = new Set(statsData.map(item => Math.floor(item.year / 10) * 10).filter(y => y > 0));

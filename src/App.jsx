@@ -64,7 +64,7 @@ const App = () => {
         const raw = doc.data();
         
         // --- THE SMART SANITIZER ---
-        // This now checks for Capitalized, lowercase, and alternate column names!
+        // Looks for lowercase AND Capitalized column names
         const rawYear = raw.year || raw.Year || raw.YEAR;
         const rawHunter = raw.hunter || raw.Hunter || raw.Name || raw.HUNTER;
         const rawSex = raw.sex || raw.Sex || raw.Type || raw.SEX;

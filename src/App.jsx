@@ -16,6 +16,8 @@ import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
 // --- FIREBASE & ROWY INITIALIZATION ---
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCgRN8WXDabr6OVNXO8AliOOXfiO9uTEP8",
   authDomain: "sand-river-hunting-history-65.firebaseapp.com",
@@ -25,6 +27,7 @@ const firebaseConfig = {
   appId: "1:506475795580:web:991142b947315fbdae25f9",
   measurementId: "G-WQSL0B3TDE"
 };
+
 
 // *** EXACT ROWY TABLE NAME ***
 const ROWY_TABLE_NAME = "testtable1"; 

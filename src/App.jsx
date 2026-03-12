@@ -14,6 +14,8 @@ import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
 
 // =========================================================================
 // --- FIREBASE & ROWY INITIALIZATION ---
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCgRN8WXDabr6OVNXO8AliOOXfiO9uTEP8",
   authDomain: "sand-river-hunting-history-65.firebaseapp.com",

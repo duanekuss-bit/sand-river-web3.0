@@ -25,7 +25,7 @@ const firebaseConfig = {
 };
 
 // *** EXACT ROWY TABLE NAME ***
-const ROWY_TABLE_NAME = "testtable1"; 
+const ROWY_TABLE_NAME = "TESTTABLE1"; 
 // =========================================================================
 
 const app = initializeApp(firebaseConfig);

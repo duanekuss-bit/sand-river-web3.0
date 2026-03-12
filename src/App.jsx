@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   MapPin, Users, Clock, BookOpen, Filter, History, Home, BarChart3, Target, Upload, 
   CheckCircle2, Cloud, CloudOff, CloudLightning, Loader2, Camera, ExternalLink, 
-  Image as ImageIcon, BookMarked, ChevronDown, ChevronUp, BookText, Award, Wind
+  Image as ImageIcon, BookMarked, ChevronDown, ChevronUp, BookText, Award, Wind, Search
 } from 'lucide-react';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -15,7 +15,6 @@ import { getFirestore, collection, doc, writeBatch, onSnapshot } from 'firebase/
 
 // =========================================================================
 // --- FIREBASE & ROWY INITIALIZATION ---
-// I have pre-filled your exact Firebase keys here.
 const firebaseConfig = {
   apiKey: "AIzaSyCgRN8WXDabr6OVNXO8AliOOXfiO9uTEP8",
   authDomain: "sand-river-hunting-history-65.firebaseapp.com",
@@ -26,8 +25,7 @@ const firebaseConfig = {
   measurementId: "G-WQSL0B3TDE"
 };
 
-// *** IMPORTANT: CHANGE THIS TO YOUR EXACT ROWY TABLE NAME ***
-// It is likely "sandriver_stats", "table1", or "harvests"
+// *** EXACT ROWY TABLE NAME ***
 const ROWY_TABLE_NAME = "testtable1"; 
 // =========================================================================
 
@@ -37,12 +35,7 @@ const db = getFirestore(app);
 
 // Default Curated Highlights
 const defaultStats = [
-  { 
-    year: 1961, hunter: "John Godava", sex: "Buck", location: "Pollock's Lowland", time: "AM", party: 3, weather: "Clear/Cold", note: "The First One. Purchased South 40 for $40 + timber value.",
-    story: "The foundation of Sand River was laid by a cast of characters as colorful as the Minnesota woods themselves. In the spring of 1961, they purchased the 'South 40 Acres' for $40 plus $175 for timber value. That first year, John and Daune stayed in the first trailer brought onto the property, a 1947 Adams purchased for $75. John was the first to shoot a deer on the newly-purchased property. He was standing down in the lowlands just west of Polock's Point, when a nice 205 lb. buck came running towards him.",
-    partyPhoto: "https://images.unsplash.com/photo-1520699697851-3d29cb1f17bd?q=80&w=800&auto=format&fit=crop", 
-    harvestPhoto: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800&auto=format&fit=crop"
-  },
+  { year: 1961, hunter: "John Godava", sex: "Buck", location: "Pollock's Lowland", time: "AM", party: 3, weather: "Clear/Cold", note: "The First One. Purchased South 40 for $40 + timber value.", story: "The foundation of Sand River was laid by a cast of characters as colorful as the Minnesota woods themselves. In the spring of 1961, they purchased the 'South 40 Acres' for $40 plus $175 for timber value.", partyPhoto: "https://images.unsplash.com/photo-1520699697851-3d29cb1f17bd?q=80&w=800&auto=format&fit=crop", harvestPhoto: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800&auto=format&fit=crop" },
   { year: 1964, hunter: "No Harvest", sex: "N/A", location: "N/A", time: "N/A", party: 4, weather: "Cold", note: "Skunked Year #1. The woods win for the first time." },
   { year: 1982, hunter: "Doug Smith", sex: "Buck", location: "Hatchet Ridge", time: "AM", party: 6, weather: "Crisp", note: "Doug's first Sand River deer. A pivotal generational bridge." },
   { year: 2025, hunter: "No Harvest", sex: "N/A", location: "N/A", time: "N/A", party: 10, weather: "Freezing", note: "Skunked Year #6. The 65th Anniversary. A roster of 10 hunters proves the legacy lives on." }
@@ -82,17 +75,33 @@ const App = () => {
   useEffect(() => {
     if (!db || !user) return;
     
-    // Using your custom Rowy table name here
     const colRef = collection(db, ROWY_TABLE_NAME);
     
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const records = [];
       snapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() });
+        const raw = doc.data();
+        
+        // --- THE SANITIZER ---
+        // This forces every Rowy cell into the exact format the website needs so it never crashes.
+        records.push({
+          id: doc.id,
+          year: Number(raw.year) || 0,
+          hunter: raw.hunter ? String(raw.hunter) : "Unknown",
+          sex: raw.sex ? String(raw.sex) : "Unk",
+          location: raw.location ? String(raw.location) : "Unknown",
+          weather: raw.weather ? String(raw.weather) : "",
+          party: Number(raw.party) || 0,
+          note: raw.note ? String(raw.note) : "",
+          story: raw.story ? String(raw.story) : null,
+          partyPhoto: raw.partyPhoto || null,
+          harvestPhoto: raw.harvestPhoto || null,
+          yearlyAlbum: raw.yearlyAlbum ? String(raw.yearlyAlbum) : null
+        });
       });
 
       if (records.length > 0) {
-        const sortedData = records.sort((a, b) => (a.year || 0) - (b.year || 0));
+        const sortedData = records.sort((a, b) => a.year - b.year);
         setStatsData(sortedData);
         setIsDataImported(true);
       }
@@ -106,18 +115,17 @@ const App = () => {
   }, [user]);
 
   const decades = useMemo(() => {
-    const decs = new Set(statsData.map(item => Math.floor((item.year || 0) / 10) * 10).filter(y => y > 0));
+    const decs = new Set(statsData.map(item => Math.floor(item.year / 10) * 10).filter(y => y > 0));
     return Array.from(decs).sort();
   }, [statsData]);
 
   const filteredData = useMemo(() => {
     return statsData.filter(item => {
       const matchesSearch = Object.values(item).some(val => 
-        val?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+        String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-      const itemSex = item.sex || 'Unknown';
-      const matchesSex = filterSex === 'All' || itemSex === filterSex;
-      const itemDecade = Math.floor((item.year || 0) / 10) * 10;
+      const matchesSex = filterSex === 'All' || item.sex === filterSex;
+      const itemDecade = Math.floor(item.year / 10) * 10;
       const matchesDecade = filterDecade === 'All' || itemDecade === parseInt(filterDecade);
       return matchesSearch && matchesSex && matchesDecade;
     });
@@ -126,10 +134,9 @@ const App = () => {
   const hunterStats = useMemo(() => {
     const stats = {};
     statsData.forEach(d => {
-      const hunter = d.hunter || "Unknown";
-      if (hunter === "No Harvest" || hunter === "Unknown" || hunter === "Multiple" || hunter.includes("Unknown")) return;
-      if (!stats[hunter]) stats[hunter] = 0;
-      stats[hunter]++;
+      if (d.hunter === "No Harvest" || d.hunter === "Unknown" || d.hunter === "Multiple" || d.hunter.includes("Unknown")) return;
+      if (!stats[d.hunter]) stats[d.hunter] = 0;
+      stats[d.hunter]++;
     });
     return Object.entries(stats).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
   }, [statsData]);
@@ -140,7 +147,7 @@ const App = () => {
       if (!d.year) return;
       const interval = Math.floor(d.year / 5) * 5;
       if (!intervals[interval]) intervals[interval] = { year: `${interval}s`, harvests: 0, hunters: d.party || 5 };
-      if (d.hunter && d.hunter !== "No Harvest") intervals[interval].harvests += 1;
+      if (d.hunter !== "No Harvest") intervals[interval].harvests += 1;
     });
     return Object.values(intervals).sort((a, b) => a.year.localeCompare(b.year));
   }, [statsData]);
@@ -148,9 +155,8 @@ const App = () => {
   const sexStats = useMemo(() => {
     const stats = { Buck: 0, Doe: 0 };
     statsData.forEach(d => {
-      const sex = d.sex || "";
-      if (sex === "Buck") stats.Buck++;
-      if (sex.includes("Doe") || sex.includes("Fawn")) stats.Doe++;
+      if (d.sex === "Buck") stats.Buck++;
+      if (d.sex.includes("Doe") || d.sex.includes("Fawn")) stats.Doe++;
     });
     return [{ name: 'Bucks', value: stats.Buck }, { name: 'Does', value: stats.Doe }];
   }, [statsData]);
@@ -163,13 +169,13 @@ const App = () => {
       if (!eventsMap.has(item.year)) {
         eventsMap.set(item.year, {
           year: item.year,
-          weather: item.weather || "",
-          party: item.party || 0,
-          note: item.note || "",
-          story: item.story || null,               
-          partyPhoto: item.partyPhoto || null,     
-          harvestPhoto: item.harvestPhoto || null, 
-          yearlyAlbum: item.yearlyAlbum || null, 
+          weather: item.weather,
+          party: item.party,
+          note: item.note,
+          story: item.story,               
+          partyPhoto: item.partyPhoto,     
+          harvestPhoto: item.harvestPhoto, 
+          yearlyAlbum: item.yearlyAlbum, 
           locations: new Set(),
           harvests: []
         });
@@ -184,18 +190,18 @@ const App = () => {
       if (!event.harvestPhoto && item.harvestPhoto) event.harvestPhoto = Array.isArray(item.harvestPhoto) ? item.harvestPhoto[0]?.downloadURL : item.harvestPhoto;
 
       if (item.location && item.location !== 'N/A' && item.location !== 'Varies') event.locations.add(item.location);
-      if (item.hunter && item.hunter !== "No Harvest") {
+      if (item.hunter !== "No Harvest") {
         event.harvests.push({
-          hunter: item.hunter || 'Unknown',
-          sex: item.sex || 'Unk',
-          location: item.location || 'Unknown Stand'
+          hunter: item.hunter,
+          sex: item.sex,
+          location: item.location
         });
       }
     });
     return Array.from(eventsMap.values()).sort((a,b) => b.year - a.year);
   }, [statsData]);
 
-  const totalHarvests = statsData.filter(d => d.hunter && d.hunter !== "No Harvest").length;
+  const totalHarvests = statsData.filter(d => d.hunter !== "No Harvest").length;
   const skunkedYears = groupedTimelineEvents.filter(e => e.harvests.length === 0).length;
 
   return (
@@ -271,18 +277,17 @@ const App = () => {
                     </thead>
                     <tbody className="divide-y divide-stone-100">
                       {filteredData.length > 0 ? filteredData.map((item, i) => {
-                        const itemSex = item.sex || 'Unk';
                         return (
                         <tr key={i} className="hover:bg-emerald-50/50 transition-colors group">
                           <td className="px-6 py-4"><span className="font-serif font-black text-lg text-emerald-950">{item.year}</span></td>
                           <td className="px-6 py-4">
-                            <p className="font-bold text-stone-800">{item.hunter || 'Unknown'}</p>
-                            <p className="text-[10px] text-stone-400 mt-0.5">Party: {item.party || 'Unk'}</p>
+                            <p className="font-bold text-stone-800">{item.hunter}</p>
+                            <p className="text-[10px] text-stone-400 mt-0.5">Party: {item.party}</p>
                           </td>
-                          <td className="px-6 py-4"><div className="text-sm text-stone-600">{item.location || 'Unknown'}</div></td>
+                          <td className="px-6 py-4"><div className="text-sm text-stone-600">{item.location}</div></td>
                           <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${itemSex === 'Buck' ? 'bg-amber-100 text-amber-800 border border-amber-200' : itemSex.includes('Doe') ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-stone-100 text-stone-400 border border-stone-200'}`}>
-                              {itemSex}
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${item.sex === 'Buck' ? 'bg-amber-100 text-amber-800 border border-amber-200' : item.sex.includes('Doe') ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-stone-100 text-stone-400 border border-stone-200'}`}>
+                              {item.sex}
                             </span>
                           </td>
                         </tr>
@@ -340,7 +345,7 @@ const App = () => {
                     <div key={event.year} className="bg-white rounded-[2rem] border border-stone-200 shadow-xl overflow-hidden animate-in fade-in duration-500">
                       <div className="bg-[#1e312a] p-10 md:p-16 text-center relative overflow-hidden">
                         <div className="relative z-10">
-                          <p className="text-emerald-400 font-bold uppercase tracking-[0.3em] text-xs mb-4">Chapter {event.year - 1960}</p>
+                          <p className="text-emerald-400 font-bold uppercase tracking-[0.3em] text-xs mb-4">Chapter {event.year > 1960 ? event.year - 1960 : 'Classic'}</p>
                           <h2 className="text-5xl md:text-7xl font-serif font-black text-white mb-6">{event.year}</h2>
                         </div>
                       </div>

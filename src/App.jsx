@@ -174,8 +174,8 @@ const App = () => {
   // 2. Firebase Database Sync (Rowy Collection Structure)
   useEffect(() => {
     if (!db || !user) return;
-
-    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'sandriver_stats');
+    
+const colRef = collection(db, 'https://rowy.app/p/sand-river-hunting-history-65/table/testtable1');
     
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const records = [];
@@ -239,7 +239,7 @@ const App = () => {
       
       if (db && user) {
         try {
-          const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'sandriver_stats');
+          const colRef = collection(db, 'https://rowy.app/p/sand-river-hunting-history-65/table/testtable1');
           const batch = writeBatch(db);
           
           sortedData.forEach((record) => {

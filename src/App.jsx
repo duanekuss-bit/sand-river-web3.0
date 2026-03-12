@@ -38,6 +38,19 @@ const defaultStats = [
 
 const COLORS = ['#047857', '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5'];
 
+// --- SMART IMAGE EXTRACTOR ---
+// This sniffs out the real image link regardless of how Rowy formats it
+const extractImage = (imgData) => {
+  if (!imgData) return null;
+  if (typeof imgData === 'string') return imgData; 
+  if (Array.isArray(imgData) && imgData.length > 0) {
+    const firstImg = imgData[0];
+    if (typeof firstImg === 'string') return firstImg;
+    return firstImg?.downloadURL || firstImg?.url || firstImg?.src || null;
+  }
+  return null;
+};
+
 const App = () => {
   const [statsData, setStatsData] = useState(defaultStats);
   const [isDataImported, setIsDataImported] = useState(false);
@@ -67,7 +80,6 @@ const App = () => {
         let parsedYear = 0;
         if (raw.year) {
           if (typeof raw.year === 'object' && raw.year.seconds) {
-            // Converts Firebase seconds to a real date, then extracts the year
             parsedYear = new Date(raw.year.seconds * 1000).getFullYear();
           } else if (typeof raw.year.toDate === 'function') {
             parsedYear = raw.year.toDate().getFullYear();
@@ -87,8 +99,8 @@ const App = () => {
           party: Number(raw.numberInParty) || 0,
           note: raw.note || raw.Notes || "",
           story: raw.story || raw.Story || null,
-          partyPhoto: raw.partyPhoto || raw.PartyPhoto || null,
-          harvestPhoto: raw.harvestPhoto || raw.HarvestPhoto || null,
+          partyPhoto: extractImage(raw.partyPhoto || raw.PartyPhoto),
+          harvestPhoto: extractImage(raw.harvestPhoto || raw.HarvestPhoto),
           yearlyAlbum: raw.yearlyAlbum || raw.YearlyAlbum || null
         });
       });
@@ -182,8 +194,8 @@ const App = () => {
       if (!event.story && item.story) event.story = item.story;
       if (!event.yearlyAlbum && item.yearlyAlbum) event.yearlyAlbum = item.yearlyAlbum;
       
-      if (!event.partyPhoto && item.partyPhoto) event.partyPhoto = Array.isArray(item.partyPhoto) ? item.partyPhoto[0]?.downloadURL : item.partyPhoto;
-      if (!event.harvestPhoto && item.harvestPhoto) event.harvestPhoto = Array.isArray(item.harvestPhoto) ? item.harvestPhoto[0]?.downloadURL : item.harvestPhoto;
+      if (!event.partyPhoto && item.partyPhoto) event.partyPhoto = item.partyPhoto;
+      if (!event.harvestPhoto && item.harvestPhoto) event.harvestPhoto = item.harvestPhoto;
 
       if (item.location && item.location !== 'N/A' && item.location !== 'Varies') event.locations.add(item.location);
       if (item.hunter !== "No Harvest" && item.hunter !== "Unknown") {
@@ -197,8 +209,11 @@ const App = () => {
     return Array.from(eventsMap.values()).sort((a,b) => b.year - a.year);
   }, [statsData]);
 
+  // --- NEW MATH FOR SKUNKED YEARS ---
   const totalHarvests = statsData.filter(d => d.hunter !== "No Harvest" && d.hunter !== "Unknown").length;
-  const skunkedYears = groupedTimelineEvents.filter(e => e.harvests.length === 0).length;
+  const TRADITION_AGE = 65; 
+  const successfulYearsCount = groupedTimelineEvents.filter(e => e.harvests.length > 0).length;
+  const skunkedYears = TRADITION_AGE - successfulYearsCount;
 
   return (
     <div className="min-h-screen bg-[#f8f7f4] text-stone-900 font-sans">
@@ -250,8 +265,8 @@ const App = () => {
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             <HeroStat label="Establishment" value="1961" sub="Nov 1st Purchase" color="emerald" />
             <HeroStat label="Harvest Count" value={isDataImported ? totalHarvests : "185+"} sub={isDataImported ? "Confirmed Records" : "Est. Total History"} color="amber" />
-            <HeroStat label="Skunked Years" value={isDataImported ? skunkedYears : "6"} sub="Total Recorded" color="stone" />
-            <HeroStat label="Tradition Age" value="65" sub="Continuous Years" color="blue" />
+            <HeroStat label="Skunked Years" value={isDataImported ? skunkedYears : "6"} sub="Calculated Misses" color="stone" />
+            <HeroStat label="Tradition Age" value={TRADITION_AGE} sub="Continuous Years" color="blue" />
           </section>
         )}
 
@@ -418,6 +433,21 @@ const App = () => {
                          <span className="font-bold text-stone-700 flex items-center gap-1"><Wind size={12}/> {event.weather || 'Unknown'}</span>
                        </div>
                     </div>
+                    
+                    {/* THIS BRINGS THE HUNTERS BACK TO THE TIMELINE */}
+                    {event.harvests.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-stone-100">
+                        <span className="text-stone-400 block mb-2 font-bold uppercase tracking-wider text-[9px]">Successful Hunters</span>
+                        <div className="flex flex-wrap gap-2">
+                          {event.harvests.map((h, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md text-[10px] font-bold shadow-sm">
+                              <Target size={10} /> {h.hunter} ({h.sex === 'Buck' ? 'B' : h.sex.includes('Doe') ? 'D' : h.sex.charAt(0)})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               ))}

@@ -33,10 +33,7 @@ const db = getFirestore(app);
 
 // Default Curated Highlights (Fallback data)
 const defaultStats = [
-  { year: 1961, hunter: "John Godava", sex: "Buck", location: "Pollock's Lowland", time: "AM", party: 3, weather: "Clear/Cold", note: "The First One. Purchased South 40 for $40 + timber value.", story: "The foundation of Sand River was laid by a cast of characters as colorful as the Minnesota woods themselves. In the spring of 1961, they purchased the 'South 40 Acres' for $40 plus $175 for timber value.", partyPhoto: "https://images.unsplash.com/photo-1520699697851-3d29cb1f17bd?q=80&w=800&auto=format&fit=crop", harvestPhoto: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800&auto=format&fit=crop" },
-  { year: 1964, hunter: "No Harvest", sex: "N/A", location: "N/A", time: "N/A", party: 4, weather: "Cold", note: "Skunked Year #1. The woods win for the first time." },
-  { year: 1982, hunter: "Doug Smith", sex: "Buck", location: "Hatchet Ridge", time: "AM", party: 6, weather: "Crisp", note: "Doug's first Sand River deer. A pivotal generational bridge." },
-  { year: 2025, hunter: "No Harvest", sex: "N/A", location: "N/A", time: "N/A", party: 10, weather: "Freezing", note: "Skunked Year #6. The 65th Anniversary. A roster of 10 hunters proves the legacy lives on." }
+  { year: 1961, hunter: "John Godava", sex: "Buck", location: "Pollock's Lowland", time: "AM", party: 3, weather: "Clear/Cold", note: "The First One. Purchased South 40 for $40 + timber value.", story: "The foundation of Sand River was laid by a cast of characters as colorful as the Minnesota woods themselves. In the spring of 1961, they purchased the 'South 40 Acres' for $40 plus $175 for timber value.", partyPhoto: "https://images.unsplash.com/photo-1520699697851-3d29cb1f17bd?q=80&w=800&auto=format&fit=crop", harvestPhoto: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800&auto=format&fit=crop" }
 ];
 
 const COLORS = ['#047857', '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5'];
@@ -46,6 +43,7 @@ const App = () => {
   const [isDataImported, setIsDataImported] = useState(false);
   const [cloudStatus, setCloudStatus] = useState('connecting'); 
   const [dbErrorMessage, setDbErrorMessage] = useState('');
+  const [rawSample, setRawSample] = useState(null); // The Detective
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('archive');
@@ -60,11 +58,17 @@ const App = () => {
     
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const records = [];
+      let sampleCaptured = null;
+
       snapshot.forEach((doc) => {
         const raw = doc.data();
         
+        // Grab the very first row we see for the Detective Banner
+        if (!sampleCaptured) {
+          sampleCaptured = raw;
+        }
+        
         // --- THE SMART SANITIZER ---
-        // Looks for lowercase AND Capitalized column names
         const rawYear = raw.year || raw.Year || raw.YEAR;
         const rawHunter = raw.hunter || raw.Hunter || raw.Name || raw.HUNTER;
         const rawSex = raw.sex || raw.Sex || raw.Type || raw.SEX;
@@ -94,6 +98,7 @@ const App = () => {
         const sortedData = records.sort((a, b) => a.year - b.year);
         setStatsData(sortedData);
         setIsDataImported(true);
+        setRawSample(sampleCaptured);
         setCloudStatus('synced');
       } else {
         setCloudStatus('empty');
@@ -208,20 +213,13 @@ const App = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-serif text-2xl font-black tracking-tight leading-none uppercase">Sand River Hilton</h1>
-                {cloudStatus === 'synced' && <Cloud className="text-emerald-400" size={16} title="Connected to Rowy/Cloud" />}
-                {cloudStatus === 'connecting' && <Loader2 className="text-amber-400 animate-spin" size={16} title="Connecting..." />}
-                {cloudStatus === 'empty' && <AlertTriangle className="text-amber-400" size={16} title="Table Empty" />}
-                {cloudStatus === 'error' && <CloudOff className="text-red-400" size={16} title="Offline Mode" />}
               </div>
               <p className="text-[10px] tracking-[0.2em] font-bold text-emerald-500 mt-1 uppercase">65-Year Master Chronology</p>
             </div>
           </div>
           <div className="flex bg-[#14231d] p-1 rounded-full border border-emerald-900/50 overflow-x-auto w-full md:w-auto">
             <TabButton active={activeTab === 'archive'} onClick={() => setActiveTab('archive')} label="The Ledger" icon={<BookOpen size={14}/>} />
-            <TabButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} label="Analytics" icon={<BarChart3 size={14}/>} />
-            <TabButton active={activeTab === 'chronology'} onClick={() => setActiveTab('chronology')} label="Timeline" icon={<Clock size={14}/>} />
             <TabButton active={activeTab === 'yearbook'} onClick={() => setActiveTab('yearbook')} label="The Book" icon={<BookMarked size={14}/>} />
-            <TabButton active={activeTab === 'gallery'} onClick={() => setActiveTab('gallery')} label="Photo Vault" icon={<Camera size={14}/>} />
           </div>
         </div>
       </nav>
@@ -229,211 +227,63 @@ const App = () => {
       {/* --- DIAGNOSTIC BANNERS --- */}
       {cloudStatus === 'error' && (
         <div className="bg-red-600 text-white p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
-          <AlertTriangle size={18} />
-          FIREBASE BLOCKED CONNECTION: {dbErrorMessage} (Did you publish the Public Read Rules?)
+          <AlertTriangle size={18} /> FIREBASE BLOCKED CONNECTION: {dbErrorMessage}
         </div>
       )}
       
       {cloudStatus === 'empty' && (
         <div className="bg-amber-500 text-amber-950 p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
-          <AlertTriangle size={18} />
-          CONNECTED PERFECTLY, BUT TABLE '{ROWY_TABLE_NAME}' IS EMPTY OR DOESN'T EXIST. CHECK YOUR ROWY TABLE NAME!
+          <AlertTriangle size={18} /> TABLE '{ROWY_TABLE_NAME}' IS EMPTY OR DOESN'T EXIST.
         </div>
       )}
 
-      {cloudStatus === 'synced' && (
-        <div className="bg-emerald-500 text-white p-2 text-center font-bold text-xs shadow-inner flex items-center justify-center gap-2">
-          <CheckCircle2 size={14} />
-          SUCCESSFULLY IMPORTED {statsData.length} RECORDS FROM ROWY!
+      {cloudStatus === 'synced' && rawSample && (
+        <div className="bg-blue-600 text-white p-6 shadow-inner flex flex-col items-center justify-center gap-4 w-full">
+          <div className="flex items-center gap-2 font-black text-lg">
+            <CheckCircle2 size={24} /> SUCCESSFULLY IMPORTED {statsData.length} RECORDS!
+          </div>
+          <div className="w-full max-w-4xl bg-blue-950 p-6 rounded-xl text-left font-mono text-sm overflow-x-auto border border-blue-400">
+            <p className="text-blue-300 font-bold mb-4 uppercase tracking-widest text-xs">🔍 Database Detective: Here are your hidden "Field Keys" from Rowy:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+              {Object.entries(rawSample).map(([key, val]) => (
+                <div key={key} className="border-b border-blue-800 pb-1">
+                  <span className="text-yellow-400 font-bold">"{key}"</span> : 
+                  <span className="text-blue-100 ml-2">{val !== null && typeof val === 'object' ? JSON.stringify(val).substring(0, 50) + "..." : String(val)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-blue-200 mt-4 text-xs italic">
+              *If you see your Hunter's name sitting next to a key like "column2", that means "column2" is the real Field Key!
+            </p>
+          </div>
         </div>
       )}
       {/* ------------------------- */}
 
       <main className="max-w-7xl mx-auto p-4 md:p-10">
-        
-        {activeTab !== 'gallery' && activeTab !== 'yearbook' && (
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-            <HeroStat label="Establishment" value="1961" sub="Nov 1st Purchase" color="emerald" />
-            <HeroStat label="Harvest Count" value={isDataImported ? totalHarvests : "185+"} sub={isDataImported ? "Confirmed Records" : "Est. Total History"} color="amber" />
-            <HeroStat label="Skunked Years" value={isDataImported ? skunkedYears : "6"} sub="Total Recorded" color="stone" />
-            <HeroStat label="Tradition Age" value="65" sub="Continuous Years" color="blue" />
-          </section>
-        )}
-
         {activeTab === 'archive' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <div className="lg:col-span-8 space-y-6">
-              <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden flex flex-col h-full">
-                <div className="p-6 border-b border-stone-100 bg-stone-50/50">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                    <div>
-                      <h2 className="text-2xl font-serif font-bold text-stone-800 italic">"The Meat Pole"</h2>
-                      <p className="text-sm text-stone-500">{isDataImported ? `Displaying ${statsData.length} live Rowy records` : "Showing 4 Offline Placeholders"}</p>
-                    </div>
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
-                      <input 
-                        className="w-full pl-10 pr-4 py-2 bg-white border border-stone-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm"
-                        placeholder="Search notes, hunters..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto flex-1">
-                  <table className="w-full text-left">
-                    <thead className="bg-stone-50 text-[11px] uppercase tracking-widest text-stone-400 font-bold border-b">
-                      <tr>
-                        <th className="px-6 py-4">Year</th>
-                        <th className="px-6 py-4">Hunter</th>
-                        <th className="px-6 py-4">Stand</th>
-                        <th className="px-6 py-4">Type</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {filteredData.length > 0 ? filteredData.map((item, i) => {
-                        return (
-                        <tr key={i} className="hover:bg-emerald-50/50 transition-colors group">
-                          <td className="px-6 py-4"><span className="font-serif font-black text-lg text-emerald-950">{item.year}</span></td>
-                          <td className="px-6 py-4">
-                            <p className="font-bold text-stone-800">{item.hunter}</p>
-                            <p className="text-[10px] text-stone-400 mt-0.5">Party: {item.party}</p>
-                          </td>
-                          <td className="px-6 py-4"><div className="text-sm text-stone-600">{item.location}</div></td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${item.sex === 'Buck' ? 'bg-amber-100 text-amber-800 border border-amber-200' : item.sex.includes('Doe') ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-stone-100 text-stone-400 border border-stone-200'}`}>
-                              {item.sex}
-                            </span>
-                          </td>
-                        </tr>
-                      )}) : (
-                        <tr><td colSpan="4" className="text-center py-10 text-stone-400 italic">No records match your filters.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-4 space-y-6">
-              {isDataImported && (
-                <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-200 shadow-sm flex items-start gap-4">
-                  <CheckCircle2 className="text-emerald-600 shrink-0" size={24} />
-                  <div>
-                    <h3 className="font-bold text-emerald-900">Rowy Sync Active</h3>
-                    <p className="text-emerald-700 text-xs mt-1">Successfully synced <strong>{statsData.length} records</strong>. Edits made in Rowy will appear here instantly.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'yearbook' && (
-          <div className="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto">
-            <div className="w-full md:w-64 shrink-0">
-              <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm sticky top-32 max-h-[80vh] overflow-y-auto">
-                <h3 className="font-serif font-black text-xl text-emerald-950 mb-6 flex items-center gap-2"><BookMarked size={20} className="text-emerald-700" /> Chapters</h3>
-                <div className="space-y-1">
-                  {groupedTimelineEvents.map((event) => {
-                    const isActive = (activeYearbookYear || groupedTimelineEvents[0]?.year) === event.year;
-                    return (
-                      <button
-                        key={event.year}
-                        onClick={() => setActiveYearbookYear(event.year)}
-                        className={`w-full text-left px-4 py-3 rounded-xl transition-all font-bold text-sm ${isActive ? 'bg-emerald-800 text-white shadow-md' : 'text-stone-600 hover:bg-emerald-50 hover:text-emerald-800'}`}
-                      >
-                        {event.year} Season
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1">
-              {groupedTimelineEvents
-                .filter(e => e.year === (activeYearbookYear || groupedTimelineEvents[0]?.year))
-                .map(event => {
-                  const narrative = event.story || "The full story of this season has not yet been transcribed into the digital archive.";
-                  return (
-                    <div key={event.year} className="bg-white rounded-[2rem] border border-stone-200 shadow-xl overflow-hidden animate-in fade-in duration-500">
-                      <div className="bg-[#1e312a] p-10 md:p-16 text-center relative overflow-hidden">
-                        <div className="relative z-10">
-                          <p className="text-emerald-400 font-bold uppercase tracking-[0.3em] text-xs mb-4">Chapter {event.year > 1960 ? event.year - 1960 : 'Classic'}</p>
-                          <h2 className="text-5xl md:text-7xl font-serif font-black text-white mb-6">{event.year}</h2>
-                        </div>
-                      </div>
-
-                      <div className="p-8 md:p-16">
-                        <div className="mb-16">
-                          <p className="font-serif leading-loose text-stone-700 text-lg whitespace-pre-line first-letter:text-7xl first-letter:font-black first-letter:text-emerald-900 first-letter:mr-3 first-letter:float-left">
-                            {narrative}
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-3">
-                            <h4 className="font-bold text-stone-800 uppercase tracking-widest text-xs border-b border-stone-200 pb-2">The Hunting Party</h4>
-                            {event.partyPhoto ? (
-                              <img src={event.partyPhoto} alt={`${event.year} Hunting Party`} className="w-full h-72 object-cover rounded-2xl shadow-md border border-stone-200" />
-                            ) : (
-                              <div className="w-full h-72 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center text-stone-400">
-                                <Users size={32} className="mb-2 opacity-30" />
-                                <span className="text-xs font-bold">Party Photo Missing</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="space-y-3">
-                            <h4 className="font-bold text-stone-800 uppercase tracking-widest text-xs border-b border-stone-200 pb-2">The Harvest</h4>
-                            {event.harvestPhoto ? (
-                              <img src={event.harvestPhoto} alt={`${event.year} Harvest`} className="w-full h-72 object-cover rounded-2xl shadow-md border border-stone-200" />
-                            ) : (
-                              <div className="w-full h-72 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-300 flex flex-col items-center justify-center text-stone-400">
-                                <Camera size={32} className="mb-2 opacity-30" />
-                                <span className="text-xs font-bold">Harvest Photo Missing</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {event.yearlyAlbum && (
-                          <div className="mt-12 text-center">
-                            <a href={event.yearlyAlbum} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 px-8 py-4 rounded-full font-bold text-sm transition-all border border-stone-200 hover:border-emerald-200 shadow-sm">
-                              <ImageIcon size={18} /> View Complete {event.year} Photo Album <ExternalLink size={16} className="opacity-50" />
-                            </a>
-                          </div>
-                        )}
-
-                        <div className="mt-16 bg-stone-50 p-8 rounded-3xl border border-stone-200">
-                          <h4 className="font-bold text-emerald-900 uppercase tracking-widest text-sm mb-6 flex items-center gap-2">
-                            <Award size={18} /> Official Record
-                          </h4>
-                          {event.harvests.length === 0 ? (
-                            <p className="text-stone-500 italic">No harvests recorded for this season.</p>
-                          ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {event.harvests.map((h, idx) => (
-                                <div key={idx} className="bg-white p-4 rounded-xl border border-stone-200 flex items-center gap-4 shadow-sm">
-                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-xs ${h.sex === 'Buck' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                                    {h.sex.substring(0, 1)}
-                                  </div>
-                                  <div>
-                                    <p className="font-bold text-stone-800 leading-tight">{h.hunter}</p>
-                                    <p className="text-[10px] text-stone-500 flex items-center gap-1 mt-1"><MapPin size={10}/> {h.location}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden flex flex-col h-full mt-8">
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-left">
+                <thead className="bg-stone-50 text-[11px] uppercase tracking-widest text-stone-400 font-bold border-b">
+                  <tr>
+                    <th className="px-6 py-4">Year</th>
+                    <th className="px-6 py-4">Hunter</th>
+                    <th className="px-6 py-4">Stand</th>
+                    <th className="px-6 py-4">Type</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {filteredData.slice(0, 50).map((item, i) => (
+                    <tr key={i} className="hover:bg-emerald-50/50 transition-colors group">
+                      <td className="px-6 py-4"><span className="font-serif font-black text-lg text-emerald-950">{item.year}</span></td>
+                      <td className="px-6 py-4 font-bold text-stone-800">{item.hunter}</td>
+                      <td className="px-6 py-4 text-sm text-stone-600">{item.location}</td>
+                      <td className="px-6 py-4 text-[10px] font-black uppercase">{item.sex}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -448,15 +298,11 @@ const TabButton = ({ active, onClick, label, icon }) => (
   </button>
 );
 
-const HeroStat = ({ label, value, sub, color }) => {
-  const colors = { emerald: "text-emerald-900 border-emerald-100 bg-white", amber: "text-amber-900 border-amber-100 bg-white", stone: "text-stone-900 border-stone-100 bg-white", blue: "text-blue-900 border-blue-100 bg-white" };
-  return (
-    <div className={`p-6 rounded-3xl border-2 shadow-sm ${colors[color]}`}>
-      <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">{label}</p>
-      <p className="text-3xl font-serif font-black">{value}</p>
-      <p className="text-xs text-stone-400 font-bold mt-1 uppercase tracking-tighter">{sub}</p>
-    </div>
-  );
-};
+const HeroStat = ({ label, value, sub, color }) => (
+  <div className={`p-6 rounded-3xl border-2 shadow-sm bg-white`}>
+    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">{label}</p>
+    <p className="text-3xl font-serif font-black">{value}</p>
+  </div>
+);
 
 export default App;

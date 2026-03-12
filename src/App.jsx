@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   MapPin, Users, Clock, BookOpen, Filter, History, Home, BarChart3, Target, Upload, 
   CheckCircle2, Cloud, CloudOff, CloudLightning, Loader2, Camera, ExternalLink, 
-  Image as ImageIcon, BookMarked, ChevronDown, ChevronUp, BookText, Award, Wind, Search
+  Image as ImageIcon, BookMarked, ChevronDown, ChevronUp, BookText, Award, Wind, Search, AlertTriangle
 } from 'lucide-react';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -45,6 +45,7 @@ const App = () => {
   const [statsData, setStatsData] = useState(defaultStats);
   const [isDataImported, setIsDataImported] = useState(false);
   const [cloudStatus, setCloudStatus] = useState('connecting'); 
+  const [dbErrorMessage, setDbErrorMessage] = useState('');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('archive');
@@ -55,7 +56,6 @@ const App = () => {
   useEffect(() => {
     if (!db) return;
     
-    // We removed the Auth block! It goes straight to your table now.
     const colRef = collection(db, ROWY_TABLE_NAME);
     
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
@@ -84,15 +84,18 @@ const App = () => {
         const sortedData = records.sort((a, b) => a.year - b.year);
         setStatsData(sortedData);
         setIsDataImported(true);
+        setCloudStatus('synced');
+      } else {
+        setCloudStatus('empty');
       }
-      setCloudStatus('synced');
     }, (error) => {
       console.error("Firestore error:", error);
       setCloudStatus('error');
+      setDbErrorMessage(error.message);
     });
 
     return () => unsubscribe();
-  }, []); // <--- Removed the user dependency here!
+  }, []);
 
   const decades = useMemo(() => {
     const decs = new Set(statsData.map(item => Math.floor(item.year / 10) * 10).filter(y => y > 0));
@@ -197,6 +200,7 @@ const App = () => {
                 <h1 className="font-serif text-2xl font-black tracking-tight leading-none uppercase">Sand River Hilton</h1>
                 {cloudStatus === 'synced' && <Cloud className="text-emerald-400" size={16} title="Connected to Rowy/Cloud" />}
                 {cloudStatus === 'connecting' && <Loader2 className="text-amber-400 animate-spin" size={16} title="Connecting..." />}
+                {cloudStatus === 'empty' && <AlertTriangle className="text-amber-400" size={16} title="Table Empty" />}
                 {cloudStatus === 'error' && <CloudOff className="text-red-400" size={16} title="Offline Mode" />}
               </div>
               <p className="text-[10px] tracking-[0.2em] font-bold text-emerald-500 mt-1 uppercase">65-Year Master Chronology</p>
@@ -211,6 +215,29 @@ const App = () => {
           </div>
         </div>
       </nav>
+
+      {/* --- DIAGNOSTIC BANNERS --- */}
+      {cloudStatus === 'error' && (
+        <div className="bg-red-600 text-white p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
+          <AlertTriangle size={18} />
+          FIREBASE BLOCKED CONNECTION: {dbErrorMessage} (Did you publish the Public Read Rules?)
+        </div>
+      )}
+      
+      {cloudStatus === 'empty' && (
+        <div className="bg-amber-500 text-amber-950 p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
+          <AlertTriangle size={18} />
+          CONNECTED PERFECTLY, BUT TABLE '{ROWY_TABLE_NAME}' IS EMPTY OR DOESN'T EXIST. CHECK YOUR ROWY TABLE NAME!
+        </div>
+      )}
+
+      {cloudStatus === 'synced' && (
+        <div className="bg-emerald-500 text-white p-2 text-center font-bold text-xs shadow-inner flex items-center justify-center gap-2">
+          <CheckCircle2 size={14} />
+          SUCCESSFULLY IMPORTED {statsData.length} RECORDS FROM ROWY!
+        </div>
+      )}
+      {/* ------------------------- */}
 
       <main className="max-w-7xl mx-auto p-4 md:p-10">
         
@@ -231,7 +258,7 @@ const App = () => {
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                     <div>
                       <h2 className="text-2xl font-serif font-bold text-stone-800 italic">"The Meat Pole"</h2>
-                      <p className="text-sm text-stone-500">{isDataImported ? `Displaying ${statsData.length} live Rowy records` : "Curated historical highlights"}</p>
+                      <p className="text-sm text-stone-500">{isDataImported ? `Displaying ${statsData.length} live Rowy records` : "Showing 4 Offline Placeholders"}</p>
                     </div>
                     <div className="relative w-full md:w-64">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />

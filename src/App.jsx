@@ -14,10 +14,6 @@ import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
 
 // =========================================================================
 // --- FIREBASE & ROWY INITIALIZATION ---
-
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCgRN8WXDabr6OVNXO8AliOOXfiO9uTEP8",
   authDomain: "sand-river-hunting-history-65.firebaseapp.com",
@@ -28,9 +24,8 @@ const firebaseConfig = {
   measurementId: "G-WQSL0B3TDE"
 };
 
-
 // *** EXACT ROWY TABLE NAME ***
-const ROWY_TABLE_NAME = "TESTTABLE1"; 
+const ROWY_TABLE_NAME = "testtable1"; 
 // =========================================================================
 
 const app = initializeApp(firebaseConfig);
@@ -68,20 +63,30 @@ const App = () => {
       snapshot.forEach((doc) => {
         const raw = doc.data();
         
-        // --- THE SANITIZER ---
+        // --- THE SMART SANITIZER ---
+        // This now checks for Capitalized, lowercase, and alternate column names!
+        const rawYear = raw.year || raw.Year || raw.YEAR;
+        const rawHunter = raw.hunter || raw.Hunter || raw.Name || raw.HUNTER;
+        const rawSex = raw.sex || raw.Sex || raw.Type || raw.SEX;
+        const rawLocation = raw.location || raw.Location || raw.Stand || raw.LOCATION;
+        const rawWeather = raw.weather || raw.Weather || raw.WEATHER;
+        const rawParty = raw.party || raw.Party || raw.Size || raw.PARTY;
+        const rawNote = raw.note || raw.Note || raw.Notes || raw.NOTE;
+        const rawStory = raw.story || raw.Story || raw.STORY;
+        
         records.push({
           id: doc.id,
-          year: Number(raw.year) || 0,
-          hunter: raw.hunter ? String(raw.hunter) : "Unknown",
-          sex: raw.sex ? String(raw.sex) : "Unk",
-          location: raw.location ? String(raw.location) : "Unknown",
-          weather: raw.weather ? String(raw.weather) : "",
-          party: Number(raw.party) || 0,
-          note: raw.note ? String(raw.note) : "",
-          story: raw.story ? String(raw.story) : null,
-          partyPhoto: raw.partyPhoto || null,
-          harvestPhoto: raw.harvestPhoto || null,
-          yearlyAlbum: raw.yearlyAlbum ? String(raw.yearlyAlbum) : null
+          year: Number(rawYear) || 0,
+          hunter: rawHunter ? String(rawHunter) : "Unknown",
+          sex: rawSex ? String(rawSex) : "Unk",
+          location: rawLocation ? String(rawLocation) : "Unknown",
+          weather: rawWeather ? String(rawWeather) : "",
+          party: Number(rawParty) || 0,
+          note: rawNote ? String(rawNote) : "",
+          story: rawStory ? String(rawStory) : null,
+          partyPhoto: raw.partyPhoto || raw.PartyPhoto || null,
+          harvestPhoto: raw.harvestPhoto || raw.HarvestPhoto || null,
+          yearlyAlbum: raw.yearlyAlbum || raw.YearlyAlbum || null
         });
       });
 

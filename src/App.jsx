@@ -39,7 +39,6 @@ const defaultStats = [
 const COLORS = ['#047857', '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#ecfdf5'];
 
 // --- SMART IMAGE EXTRACTOR ---
-// This sniffs out the real image link regardless of how Rowy formats it
 const extractImage = (imgData) => {
   if (!imgData) return null;
   if (typeof imgData === 'string') return imgData; 
@@ -51,12 +50,26 @@ const extractImage = (imgData) => {
   return null;
 };
 
-// --- SMART HARVEST FILTER ---
-// Case-insensitive check to ensure "None", "N/A", and blanks are marked as skunked.
-const isValidHarvest = (hunterName) => {
+// --- AGGRESSIVE HARVEST SCRUBBER ---
+// Strips punctuation to catch "N / A", "None", "Blank", or "-"
+const isValidHarvest = (hunterName, deerSex) => {
   if (!hunterName) return false;
-  const h = String(hunterName).toLowerCase().trim();
-  return h !== "unknown" && h !== "no harvest" && h !== "none" && h !== "n/a" && h !== "-" && h !== "skunked" && h !== "0";
+
+  // Strip spaces, dashes, slashes (e.g., "N / A" becomes "na")
+  const h = String(hunterName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!h || h === "unknown" || h === "noharvest" || h === "none" || h === "na" || h.includes("skunk") || h.includes("nodeer") || h === "nobody" || h === "noone" || h === "0") {
+    return false;
+  }
+
+  // Double check the Sex column just in case Hunter column was filled with attendees
+  if (deerSex) {
+      const s = String(deerSex).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (s === "none" || s === "na" || s === "noharvest" || s.includes("skunk") || s === "0") {
+          return false;
+      }
+  }
+
+  return true;
 };
 
 const App = () => {
@@ -81,8 +94,6 @@ const App = () => {
 
       snapshot.forEach((doc) => {
         const raw = doc.data();
-        
-        // --- THE MASTER TRANSLATOR ---
         
         // 1. Fix the massive Firebase Timestamp into a 4-digit Year
         let parsedYear = 0;
@@ -152,7 +163,7 @@ const App = () => {
   const hunterStats = useMemo(() => {
     const stats = {};
     statsData.forEach(d => {
-      if (!isValidHarvest(d.hunter) || d.hunter === "Multiple" || d.hunter.includes("Unknown")) return;
+      if (!isValidHarvest(d.hunter, d.sex) || d.hunter === "Multiple" || d.hunter.includes("Unknown")) return;
       if (!stats[d.hunter]) stats[d.hunter] = 0;
       stats[d.hunter]++;
     });
@@ -165,7 +176,7 @@ const App = () => {
       if (!d.year) return;
       const interval = Math.floor(d.year / 5) * 5;
       if (!intervals[interval]) intervals[interval] = { year: `${interval}s`, harvests: 0, hunters: d.party || 5 };
-      if (isValidHarvest(d.hunter)) intervals[interval].harvests += 1;
+      if (isValidHarvest(d.hunter, d.sex)) intervals[interval].harvests += 1;
     });
     return Object.values(intervals).sort((a, b) => a.year.localeCompare(b.year));
   }, [statsData]);
@@ -212,7 +223,8 @@ const App = () => {
       if (!event.harvestPhoto && item.harvestPhoto) event.harvestPhoto = item.harvestPhoto;
 
       if (item.location && item.location !== 'N/A' && item.location !== 'Varies') event.locations.add(item.location);
-      if (isValidHarvest(item.hunter)) {
+      
+      if (isValidHarvest(item.hunter, item.sex)) {
         event.harvests.push({
           hunter: item.hunter,
           sex: item.sex,
@@ -224,7 +236,7 @@ const App = () => {
   }, [statsData]);
 
   // --- PERFECT SKUNKED YEARS MATH ---
-  const totalHarvests = statsData.filter(d => isValidHarvest(d.hunter)).length;
+  const totalHarvests = statsData.filter(d => isValidHarvest(d.hunter, d.sex)).length;
   
   // Calculate the age of the tradition dynamically (Current Max Year minus 1961)
   const validYears = statsData.map(d => d.year).filter(y => y >= 1961);
@@ -235,7 +247,7 @@ const App = () => {
   // Count exactly how many unique years have at least one valid harvest
   const successfulYearsCount = groupedTimelineEvents.filter(e => e.harvests.length > 0).length;
   // Skunked Years = Total possible years minus the successful ones
-  const skunkedYears = TRADITION_AGE - successfulYearsCount;
+  const skunkedYears = Math.max(0, TRADITION_AGE - successfulYearsCount);
 
   return (
     <div className="min-h-screen bg-[#f8f7f4] text-stone-900 font-sans">
@@ -266,29 +278,15 @@ const App = () => {
         </div>
       </nav>
 
-      {/* --- DIAGNOSTIC BANNERS (Only show errors/empty now) --- */}
-      {cloudStatus === 'error' && (
-        <div className="bg-red-600 text-white p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
-          <AlertTriangle size={18} /> FIREBASE BLOCKED CONNECTION: {dbErrorMessage}
-        </div>
-      )}
-      
-      {cloudStatus === 'empty' && (
-        <div className="bg-amber-500 text-amber-950 p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
-          <AlertTriangle size={18} /> TABLE '{ROWY_TABLE_NAME}' IS EMPTY OR DOESN'T EXIST.
-        </div>
-      )}
-      {/* ------------------------- */}
-
       <main className="max-w-7xl mx-auto p-4 md:p-10">
         
         {/* HERO STATS - hide on gallery/yearbook */}
         {activeTab !== 'gallery' && activeTab !== 'yearbook' && (
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             <HeroStat label="Establishment" value="1961" sub="Nov 1st Purchase" color="emerald" />
-            <HeroStat label="Harvest Count" value={isDataImported ? totalHarvests : "185+"} sub={isDataImported ? "Confirmed Records" : "Est. Total History"} color="amber" />
-            <HeroStat label="Skunked Years" value={isDataImported ? skunkedYears : "6"} sub="Calculated Misses" color="stone" />
-            <HeroStat label="Tradition Age" value={isDataImported ? TRADITION_AGE : "65"} sub="Continuous Years" color="blue" />
+            <HeroStat label="Harvest Count" value={totalHarvests} sub={isDataImported ? "Confirmed Records" : "Est. Total History"} color="amber" />
+            <HeroStat label="Skunked Years" value={skunkedYears} sub="Calculated Misses" color="stone" />
+            <HeroStat label="Tradition Age" value={TRADITION_AGE} sub="Continuous Years" color="blue" />
           </section>
         )}
 

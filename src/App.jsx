@@ -51,6 +51,14 @@ const extractImage = (imgData) => {
   return null;
 };
 
+// --- SMART HARVEST FILTER ---
+// Case-insensitive check to ensure "None", "N/A", and blanks are marked as skunked.
+const isValidHarvest = (hunterName) => {
+  if (!hunterName) return false;
+  const h = String(hunterName).toLowerCase().trim();
+  return h !== "unknown" && h !== "no harvest" && h !== "none" && h !== "n/a" && h !== "-" && h !== "skunked" && h !== "0";
+};
+
 const App = () => {
   const [statsData, setStatsData] = useState(defaultStats);
   const [isDataImported, setIsDataImported] = useState(false);
@@ -144,7 +152,7 @@ const App = () => {
   const hunterStats = useMemo(() => {
     const stats = {};
     statsData.forEach(d => {
-      if (d.hunter === "No Harvest" || d.hunter === "Unknown" || d.hunter === "Multiple" || d.hunter.includes("Unknown")) return;
+      if (!isValidHarvest(d.hunter) || d.hunter === "Multiple" || d.hunter.includes("Unknown")) return;
       if (!stats[d.hunter]) stats[d.hunter] = 0;
       stats[d.hunter]++;
     });
@@ -157,7 +165,7 @@ const App = () => {
       if (!d.year) return;
       const interval = Math.floor(d.year / 5) * 5;
       if (!intervals[interval]) intervals[interval] = { year: `${interval}s`, harvests: 0, hunters: d.party || 5 };
-      if (d.hunter !== "No Harvest" && d.hunter !== "Unknown") intervals[interval].harvests += 1;
+      if (isValidHarvest(d.hunter)) intervals[interval].harvests += 1;
     });
     return Object.values(intervals).sort((a, b) => a.year.localeCompare(b.year));
   }, [statsData]);
@@ -204,7 +212,7 @@ const App = () => {
       if (!event.harvestPhoto && item.harvestPhoto) event.harvestPhoto = item.harvestPhoto;
 
       if (item.location && item.location !== 'N/A' && item.location !== 'Varies') event.locations.add(item.location);
-      if (item.hunter !== "No Harvest" && item.hunter !== "Unknown") {
+      if (isValidHarvest(item.hunter)) {
         event.harvests.push({
           hunter: item.hunter,
           sex: item.sex,
@@ -215,10 +223,18 @@ const App = () => {
     return Array.from(eventsMap.values()).sort((a,b) => b.year - a.year);
   }, [statsData]);
 
-  // --- NEW MATH FOR SKUNKED YEARS ---
-  const totalHarvests = statsData.filter(d => d.hunter !== "No Harvest" && d.hunter !== "Unknown").length;
-  const TRADITION_AGE = 65; 
+  // --- PERFECT SKUNKED YEARS MATH ---
+  const totalHarvests = statsData.filter(d => isValidHarvest(d.hunter)).length;
+  
+  // Calculate the age of the tradition dynamically (Current Max Year minus 1961)
+  const validYears = statsData.map(d => d.year).filter(y => y >= 1961);
+  const maxYear = validYears.length > 0 ? Math.max(...validYears) : new Date().getFullYear();
+  const minYear = 1961;
+  const TRADITION_AGE = Math.max(1, (maxYear - minYear) + 1); 
+
+  // Count exactly how many unique years have at least one valid harvest
   const successfulYearsCount = groupedTimelineEvents.filter(e => e.harvests.length > 0).length;
+  // Skunked Years = Total possible years minus the successful ones
   const skunkedYears = TRADITION_AGE - successfulYearsCount;
 
   return (
@@ -272,7 +288,7 @@ const App = () => {
             <HeroStat label="Establishment" value="1961" sub="Nov 1st Purchase" color="emerald" />
             <HeroStat label="Harvest Count" value={isDataImported ? totalHarvests : "185+"} sub={isDataImported ? "Confirmed Records" : "Est. Total History"} color="amber" />
             <HeroStat label="Skunked Years" value={isDataImported ? skunkedYears : "6"} sub="Calculated Misses" color="stone" />
-            <HeroStat label="Tradition Age" value={TRADITION_AGE} sub="Continuous Years" color="blue" />
+            <HeroStat label="Tradition Age" value={isDataImported ? TRADITION_AGE : "65"} sub="Continuous Years" color="blue" />
           </section>
         )}
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   MapPin, Users, Clock, BookOpen, Filter, History, Home, BarChart3, Target, Upload, 
   CheckCircle2, Cloud, CloudOff, CloudLightning, Loader2, Camera, ExternalLink, 
-  Image as ImageIcon, BookMarked, ChevronDown, ChevronUp, BookText, Award, Wind, Search, AlertTriangle
+  Image as ImageIcon, BookMarked, ChevronDown, ChevronUp, BookText, Award, Wind, Search, AlertTriangle, PlayCircle
 } from 'lucide-react';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -101,7 +101,9 @@ const App = () => {
           story: raw.story || raw.Story || null,
           partyPhoto: extractImage(raw.partyPhoto || raw.PartyPhoto),
           harvestPhoto: extractImage(raw.harvestPhoto || raw.HarvestPhoto),
-          yearlyAlbum: raw.yearlyAlbum || raw.YearlyAlbum || null
+          yearlyAlbum: raw.yearlyAlbum || raw.YearlyAlbum || null,
+          video1: raw.video1 || raw.Video1 || raw.youtube1 || null,
+          video2: raw.video2 || raw.Video2 || raw.youtube2 || null
         });
       });
 
@@ -183,7 +185,9 @@ const App = () => {
           story: item.story,               
           partyPhoto: item.partyPhoto,     
           harvestPhoto: item.harvestPhoto, 
-          yearlyAlbum: item.yearlyAlbum, 
+          yearlyAlbum: item.yearlyAlbum,
+          video1: item.video1,
+          video2: item.video2,
           locations: new Set(),
           harvests: []
         });
@@ -193,6 +197,8 @@ const App = () => {
       
       if (!event.story && item.story) event.story = item.story;
       if (!event.yearlyAlbum && item.yearlyAlbum) event.yearlyAlbum = item.yearlyAlbum;
+      if (!event.video1 && item.video1) event.video1 = item.video1;
+      if (!event.video2 && item.video2) event.video2 = item.video2;
       
       if (!event.partyPhoto && item.partyPhoto) event.partyPhoto = item.partyPhoto;
       if (!event.harvestPhoto && item.harvestPhoto) event.harvestPhoto = item.harvestPhoto;
@@ -433,21 +439,6 @@ const App = () => {
                          <span className="font-bold text-stone-700 flex items-center gap-1"><Wind size={12}/> {event.weather || 'Unknown'}</span>
                        </div>
                     </div>
-                    
-                    {/* THIS BRINGS THE HUNTERS BACK TO THE TIMELINE */}
-                    {event.harvests.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-stone-100">
-                        <span className="text-stone-400 block mb-2 font-bold uppercase tracking-wider text-[9px]">Successful Hunters</span>
-                        <div className="flex flex-wrap gap-2">
-                          {event.harvests.map((h, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md text-[10px] font-bold shadow-sm">
-                              <Target size={10} /> {h.hunter} ({h.sex === 'Buck' ? 'B' : h.sex.includes('Doe') ? 'D' : h.sex.charAt(0)})
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                   </div>
                 </div>
               ))}
@@ -525,11 +516,23 @@ const App = () => {
                           </div>
                         </div>
                         
-                        {event.yearlyAlbum && (
-                          <div className="mt-12 text-center">
-                            <a href={event.yearlyAlbum} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 px-8 py-4 rounded-full font-bold text-sm transition-all border border-stone-200 hover:border-emerald-200 shadow-sm">
-                              <ImageIcon size={18} /> View Complete {event.year} Photo Album <ExternalLink size={16} className="opacity-50" />
-                            </a>
+                        {(event.yearlyAlbum || event.video1 || event.video2) && (
+                          <div className="mt-12 flex flex-col md:flex-row flex-wrap items-center justify-center gap-4">
+                            {event.yearlyAlbum && (
+                              <a href={event.yearlyAlbum} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 px-8 py-4 rounded-full font-bold text-sm transition-all border border-stone-200 hover:border-emerald-200 shadow-sm">
+                                <ImageIcon size={18} /> View Complete {event.year} Photo Album <ExternalLink size={16} className="opacity-50" />
+                              </a>
+                            )}
+                            {event.video1 && (
+                              <a href={event.video1} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 px-8 py-4 rounded-full font-bold text-sm transition-all border border-red-200 hover:border-red-300 shadow-sm">
+                                <PlayCircle size={18} /> Watch {event.year} Video 1 <ExternalLink size={16} className="opacity-50" />
+                              </a>
+                            )}
+                            {event.video2 && (
+                              <a href={event.video2} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 px-8 py-4 rounded-full font-bold text-sm transition-all border border-red-200 hover:border-red-300 shadow-sm">
+                                <PlayCircle size={18} /> Watch {event.year} Video 2 <ExternalLink size={16} className="opacity-50" />
+                              </a>
+                            )}
                           </div>
                         )}
 

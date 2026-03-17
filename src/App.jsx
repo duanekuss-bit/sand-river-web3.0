@@ -164,26 +164,27 @@ const App = () => {
     return Array.from(decs).sort();
   }, [statsData]);
 
-  const filteredData = useMemo(() => {
-    const searchLower = searchTerm.toLowerCase().trim(); // Trim removes accidental mobile spaces!
+ const filteredData = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase().trim(); 
     
     return statsData.filter(item => {
       let matchesSearch = true;
       
       if (searchLower) {
-        // Explicitly check the fields we care about, one by one
-        const searchableFields = [
-          item.year, item.hunter, item.location, 
-          item.weather, item.note, item.story, item.sex
-        ];
+        // THE NUCLEAR OPTION: Smash all text together into one giant searchable string
+        const searchableText = [
+          item.year, 
+          item.hunter, 
+          item.location, 
+          item.weather, 
+          item.note, 
+          item.story, 
+          item.sex
+        ].join(" ").toLowerCase();
         
-        matchesSearch = searchableFields.some(val => {
-          if (val === null || val === undefined) return false;
-          const strVal = String(val).toLowerCase();
-          // Ignore our placeholder text so searching "u" doesn't return all "Unknown"s
-          if (strVal === "unknown" || strVal === "unk") return false;
-          return strVal.includes(searchLower);
-        });
+        // If the giant string includes the typed word, it's a match!
+        // We also make sure we aren't accidentally searching the hidden "Unknown" tags
+        matchesSearch = searchableText.includes(searchLower) && searchLower !== "unknown" && searchLower !== "unk";
       }
 
       const matchesSex = filterSex === 'All' || item.sex === filterSex;
@@ -307,7 +308,7 @@ const App = () => {
           </div>
         </div>
       </nav>
-
+      
       {/* --- DIAGNOSTIC BANNERS --- */}
       {cloudStatus === 'error' && (
         <div className="bg-red-600 text-white p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">

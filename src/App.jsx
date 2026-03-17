@@ -164,7 +164,7 @@ const App = () => {
     return Array.from(decs).sort();
   }, [statsData]);
 
- const filteredData = useMemo(() => {
+  const filteredData = useMemo(() => {
     const searchLower = searchTerm.toLowerCase().trim(); 
     
     return statsData.filter(item => {
@@ -299,7 +299,7 @@ const App = () => {
               <p className="text-[10px] tracking-[0.2em] font-bold text-emerald-500 mt-1 uppercase">65-Year Master Chronology</p>
             </div>
           </div>
-          <div className="flex bg-[#14231d] p-1 rounded-full border border-emerald-900/50 overflow-x-auto w-full md:w-auto">
+          <div className="flex flex-wrap justify-center bg-[#14231d] p-1.5 rounded-3xl border border-emerald-900/50 w-full md:w-auto gap-1">
             <TabButton active={activeTab === 'archive'} onClick={() => setActiveTab('archive')} label="The Ledger" icon={<BookOpen size={14}/>} />
             <TabButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} label="Analytics" icon={<BarChart3 size={14}/>} />
             <TabButton active={activeTab === 'chronology'} onClick={() => setActiveTab('chronology')} label="Timeline" icon={<Clock size={14}/>} />
@@ -308,7 +308,7 @@ const App = () => {
           </div>
         </div>
       </nav>
-      
+
       {/* --- DIAGNOSTIC BANNERS --- */}
       {cloudStatus === 'error' && (
         <div className="bg-red-600 text-white p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
@@ -669,7 +669,7 @@ const App = () => {
 };
 
 const TabButton = ({ active, onClick, label, icon }) => (
-  <button onClick={onClick} className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${active ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-500 hover:text-emerald-100'}`}>
+  <button onClick={onClick} className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-6 py-2 md:py-2.5 rounded-full text-[11px] md:text-xs font-bold transition-all whitespace-nowrap grow md:grow-0 justify-center ${active ? 'bg-emerald-800 text-white shadow-lg' : 'text-emerald-500 hover:text-emerald-100 hover:bg-emerald-900/50'}`}>
     {icon} {label}
   </button>
 );

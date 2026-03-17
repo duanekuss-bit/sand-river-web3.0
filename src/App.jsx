@@ -342,7 +342,7 @@ const App = () => {
                 <div className="p-6 border-b border-stone-100 bg-stone-50/50">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                     <div>
-                      <h2 className="text-2xl font-serif font-bold text-stone-800 italic">"The Meat Pole"</h2>
+                      <h2 className="text-2xl font-serif font-bold text-stone-800 italic">"The Hilton Archives"</h2>
                       <p className="text-sm text-stone-500">{isDataImported ? `Displaying ${statsData.length} live Rowy records` : "Showing Offline Placeholders"}</p>
                     </div>
                     <div className="relative w-full md:w-64">

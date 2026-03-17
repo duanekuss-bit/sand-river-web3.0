@@ -50,6 +50,18 @@ const extractImage = (imgData) => {
   return null;
 };
 
+// --- SMART TEXT EXTRACTOR ---
+// This catches Rowy "Tags", "Collaborators", or weird formatting so it always becomes pure text
+const extractText = (val) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === 'string' || typeof val === 'number') return String(val).trim();
+  if (Array.isArray(val)) return val.map(extractText).join(", ");
+  if (typeof val === 'object') {
+    return val.displayName || val.name || val.value || val.label || String(val);
+  }
+  return String(val).trim();
+};
+
 // --- AGGRESSIVE HARVEST SCRUBBER ---
 const isValidHarvest = (hunterName, deerSex) => {
   if (!hunterName) return false;
@@ -105,16 +117,23 @@ const App = () => {
         }
         
         // 2. Map exactly to the Field Keys
+        // --- BULLETPROOF FIELD EXTRACTOR ---
+        const rawHunter = extractText(raw.hunterName || raw.hunter || raw.Hunter || raw.Name || raw.HUNTER);
+        const rawSex = extractText(raw.deerSex || raw.sex || raw.Sex || raw.Type || raw.SEX);
+        const rawLocation = extractText(raw.location || raw.Location || raw.Stand || raw.LOCATION);
+        const rawWeather = extractText(raw.weather || raw.Weather || raw.WEATHER);
+        const rawParty = extractText(raw.numberInParty || raw.party || raw.Party || raw.Size || raw.PARTY);
+        
         records.push({
           id: doc.id,
           year: parsedYear,
-          hunter: raw.hunterName ? String(raw.hunterName) : "Unknown",
-          sex: raw.deerSex ? String(raw.deerSex) : "Unk",
-          location: raw.location ? String(raw.location) : "Unknown",
-          weather: raw.weather ? String(raw.weather) : "",
-          party: Number(raw.numberInParty) || 0,
-          note: raw.note || raw.Notes || "",
-          story: raw.story || raw.Story || null,
+          hunter: rawHunter ? rawHunter : "Unknown",
+          sex: rawSex ? rawSex : "Unk",
+          location: rawLocation ? rawLocation : "Unknown",
+          weather: rawWeather ? rawWeather : "",
+          party: Number(rawParty) || 0,
+          note: extractText(raw.note || raw.Notes || ""),
+          story: extractText(raw.story || raw.Story) || null,
           partyPhoto: extractImage(raw.partyPhoto || raw.PartyPhoto),
           harvestPhoto: extractImage(raw.harvestPhoto || raw.HarvestPhoto),
           yearlyAlbum: raw.yearlyAlbum || raw.YearlyAlbum || null,
@@ -146,23 +165,31 @@ const App = () => {
   }, [statsData]);
 
   const filteredData = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase().trim(); // Trim removes accidental mobile spaces!
+    
     return statsData.filter(item => {
-      // --- SMART SEARCH FIX ---
-      // We only look at specific text fields now, ignoring all photo URLs and IDs!
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || (
-        String(item.year).toLowerCase().includes(searchLower) ||
-        String(item.hunter).toLowerCase().includes(searchLower) ||
-        String(item.location).toLowerCase().includes(searchLower) ||
-        String(item.weather).toLowerCase().includes(searchLower) ||
-        String(item.note).toLowerCase().includes(searchLower) ||
-        String(item.story).toLowerCase().includes(searchLower) ||
-        String(item.sex).toLowerCase().includes(searchLower)
-      );
+      let matchesSearch = true;
+      
+      if (searchLower) {
+        // Explicitly check the fields we care about, one by one
+        const searchableFields = [
+          item.year, item.hunter, item.location, 
+          item.weather, item.note, item.story, item.sex
+        ];
+        
+        matchesSearch = searchableFields.some(val => {
+          if (val === null || val === undefined) return false;
+          const strVal = String(val).toLowerCase();
+          // Ignore our placeholder text so searching "u" doesn't return all "Unknown"s
+          if (strVal === "unknown" || strVal === "unk") return false;
+          return strVal.includes(searchLower);
+        });
+      }
 
       const matchesSex = filterSex === 'All' || item.sex === filterSex;
       const itemDecade = Math.floor(item.year / 10) * 10;
       const matchesDecade = filterDecade === 'All' || itemDecade === parseInt(filterDecade);
+      
       return matchesSearch && matchesSex && matchesDecade;
     });
   }, [statsData, searchTerm, filterSex, filterDecade]);

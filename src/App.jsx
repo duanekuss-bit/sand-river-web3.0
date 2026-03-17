@@ -51,17 +51,14 @@ const extractImage = (imgData) => {
 };
 
 // --- AGGRESSIVE HARVEST SCRUBBER ---
-// Strips punctuation to catch "N / A", "None", "Blank", or "-"
 const isValidHarvest = (hunterName, deerSex) => {
   if (!hunterName) return false;
 
-  // Strip spaces, dashes, slashes (e.g., "N / A" becomes "na")
   const h = String(hunterName).toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!h || h === "unknown" || h === "noharvest" || h === "none" || h === "na" || h.includes("skunk") || h.includes("nodeer") || h === "nobody" || h === "noone" || h === "0") {
     return false;
   }
 
-  // Double check the Sex column just in case Hunter column was filled with attendees
   if (deerSex) {
       const s = String(deerSex).toLowerCase().replace(/[^a-z0-9]/g, '');
       if (s === "none" || s === "na" || s === "noharvest" || s.includes("skunk") || s === "0") {
@@ -150,9 +147,19 @@ const App = () => {
 
   const filteredData = useMemo(() => {
     return statsData.filter(item => {
-      const matchesSearch = Object.values(item).some(val => 
-        String(val).toLowerCase().includes(searchTerm.toLowerCase())
+      // --- SMART SEARCH FIX ---
+      // We only look at specific text fields now, ignoring all photo URLs and IDs!
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = !searchTerm || (
+        String(item.year).toLowerCase().includes(searchLower) ||
+        String(item.hunter).toLowerCase().includes(searchLower) ||
+        String(item.location).toLowerCase().includes(searchLower) ||
+        String(item.weather).toLowerCase().includes(searchLower) ||
+        String(item.note).toLowerCase().includes(searchLower) ||
+        String(item.story).toLowerCase().includes(searchLower) ||
+        String(item.sex).toLowerCase().includes(searchLower)
       );
+
       const matchesSex = filterSex === 'All' || item.sex === filterSex;
       const itemDecade = Math.floor(item.year / 10) * 10;
       const matchesDecade = filterDecade === 'All' || itemDecade === parseInt(filterDecade);
@@ -235,18 +242,14 @@ const App = () => {
     return Array.from(eventsMap.values()).sort((a,b) => b.year - a.year);
   }, [statsData]);
 
-  // --- PERFECT SKUNKED YEARS MATH ---
   const totalHarvests = statsData.filter(d => isValidHarvest(d.hunter, d.sex)).length;
   
-  // Calculate the age of the tradition dynamically (Current Max Year minus 1961)
   const validYears = statsData.map(d => d.year).filter(y => y >= 1961);
   const maxYear = validYears.length > 0 ? Math.max(...validYears) : new Date().getFullYear();
   const minYear = 1961;
   const TRADITION_AGE = Math.max(1, (maxYear - minYear) + 1); 
 
-  // Count exactly how many unique years have at least one valid harvest
   const successfulYearsCount = groupedTimelineEvents.filter(e => e.harvests.length > 0).length;
-  // Skunked Years = Total possible years minus the successful ones
   const skunkedYears = Math.max(0, TRADITION_AGE - successfulYearsCount);
 
   return (
@@ -278,9 +281,23 @@ const App = () => {
         </div>
       </nav>
 
+      {/* --- DIAGNOSTIC BANNERS --- */}
+      {cloudStatus === 'error' && (
+        <div className="bg-red-600 text-white p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
+          <AlertTriangle size={18} /> FIREBASE BLOCKED CONNECTION: {dbErrorMessage}
+        </div>
+      )}
+      
+      {cloudStatus === 'empty' && (
+        <div className="bg-amber-500 text-amber-950 p-4 text-center font-bold text-sm shadow-inner flex items-center justify-center gap-2">
+          <AlertTriangle size={18} /> TABLE '{ROWY_TABLE_NAME}' IS EMPTY OR DOESN'T EXIST.
+        </div>
+      )}
+      {/* ------------------------- */}
+
       <main className="max-w-7xl mx-auto p-4 md:p-10">
         
-        {/* HERO STATS - hide on gallery/yearbook */}
+        {/* HERO STATS */}
         {activeTab !== 'gallery' && activeTab !== 'yearbook' && (
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
             <HeroStat label="Establishment" value="1961" sub="Nov 1st Purchase" color="emerald" />
@@ -340,7 +357,7 @@ const App = () => {
                           </td>
                         </tr>
                       )}) : (
-                        <tr><td colSpan="4" className="text-center py-10 text-stone-400 italic">No records match your filters.</td></tr>
+                        <tr><td colSpan="4" className="text-center py-10 text-stone-400 italic">No records match your search.</td></tr>
                       )}
                     </tbody>
                   </table>

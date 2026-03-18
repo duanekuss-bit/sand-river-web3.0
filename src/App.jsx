@@ -51,7 +51,6 @@ const extractImage = (imgData) => {
 };
 
 // --- SMART TEXT EXTRACTOR ---
-// This catches Rowy "Tags", "Collaborators", or weird formatting so it always becomes pure text
 const extractText = (val) => {
   if (val === null || val === undefined) return "";
   if (typeof val === 'string' || typeof val === 'number') return String(val).trim();
@@ -117,7 +116,6 @@ const App = () => {
         }
         
         // 2. Map exactly to the Field Keys
-        // --- BULLETPROOF FIELD EXTRACTOR ---
         const rawHunter = extractText(raw.hunterName || raw.hunter || raw.Hunter || raw.Name || raw.HUNTER);
         const rawSex = extractText(raw.deerSex || raw.sex || raw.Sex || raw.Type || raw.SEX);
         const rawLocation = extractText(raw.location || raw.Location || raw.Stand || raw.LOCATION);
@@ -171,7 +169,6 @@ const App = () => {
       let matchesSearch = true;
       
       if (searchLower) {
-        // THE NUCLEAR OPTION: Smash all text together into one giant searchable string
         const searchableText = [
           item.year, 
           item.hunter, 
@@ -182,8 +179,6 @@ const App = () => {
           item.sex
         ].join(" ").toLowerCase();
         
-        // If the giant string includes the typed word, it's a match!
-        // We also make sure we aren't accidentally searching the hidden "Unknown" tags
         matchesSearch = searchableText.includes(searchLower) && searchLower !== "unknown" && searchLower !== "unk";
       }
 
@@ -508,7 +503,26 @@ const App = () => {
         {/* --- 4. THE BOOK TAB --- */}
         {activeTab === 'yearbook' && (
           <div className="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto">
-            <div className="w-full md:w-64 shrink-0">
+            
+            {/* --- MOBILE: Native Dropdown Menu --- */}
+            <div className="md:hidden w-full sticky top-[100px] z-40 bg-[#f8f7f4] pt-2 pb-4">
+              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Select A Chapter</label>
+              <div className="relative">
+                <select 
+                  className="w-full appearance-none bg-white border border-stone-200 rounded-xl px-4 py-3 font-serif font-bold text-emerald-950 text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-md"
+                  value={activeYearbookYear || groupedTimelineEvents[0]?.year || ""}
+                  onChange={(e) => setActiveYearbookYear(Number(e.target.value))}
+                >
+                  {groupedTimelineEvents.map(event => (
+                    <option key={event.year} value={event.year}>{event.year} Season</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none" size={20} />
+              </div>
+            </div>
+
+            {/* --- DESKTOP: Sticky Sidebar --- */}
+            <div className="hidden md:block w-64 shrink-0">
               <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm sticky top-32 max-h-[80vh] overflow-y-auto">
                 <h3 className="font-serif font-black text-xl text-emerald-950 mb-6 flex items-center gap-2"><BookMarked size={20} className="text-emerald-700" /> Chapters</h3>
                 <div className="space-y-1">
@@ -528,6 +542,7 @@ const App = () => {
               </div>
             </div>
 
+            {/* --- CHAPTER CONTENT --- */}
             <div className="flex-1">
               {groupedTimelineEvents
                 .filter(e => e.year === (activeYearbookYear || groupedTimelineEvents[0]?.year))
